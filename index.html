@@ -15,7 +15,7 @@ let S=1;function fit(){S=Math.min(innerWidth/W,innerHeight/H);const d=devicePixe
 function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 // ---- save ----
 const DEF={stage:1,max:1,coins:0,up:{dmg:0,rate:0,energy:0,hp:0,volley:0},pack:0,snd:1,vib:1,mus:1,evo:0,maxp:0,spd:1,alv:[1,1,1,1,1],am:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],adir:[0,0,0,0,0],audfix:0,xl:[0,0,0,0,0],xp:[0,0,0,0,0],pts:[0,0,0,0,0],ap:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],autoUp:0,ptsv:0,layout:[{t:0},{t:1},{t:2},{t:3},{t:4}]};
-let SV;try{SV=Object.assign({},DEF,JSON.parse(localStorage.archerTD||'{}'));SV.up=Object.assign({},DEF.up,SV.up);SV.am=(SV.am||DEF.am).map(m=>m.length<3?m.concat([0]):m);if(!SV.ptsv){SV.ap=SV.alv.map(L=>{const k=L-1,a=Math.ceil(k*.45),b=Math.ceil((k-a)*.7);return[a,b,k-a-b]});SV.xl=SV.alv.map(L=>L-1);SV.xp=SV.am.map(m=>(m[0]+m[1]+m[2])/3);SV.pts=[0,0,0,0,0];SV.ptsv=1}if(!SV.audfix){SV.snd=1;SV.mus=1;SV.audfix=1}}catch(e){SV=JSON.parse(JSON.stringify(DEF))}
+let SV;try{SV=Object.assign({},DEF,JSON.parse(localStorage.archerTD||'{}'));SV.up=Object.assign({},DEF.up,SV.up);SV.am=(SV.am||DEF.am).map(m=>m.length<3?m.concat([0]):m);if(!SV.ptsv){SV.ap=SV.alv.map(L=>{const k=L-1,a=Math.ceil(k*.45),b=Math.ceil((k-a)*.7);return[a,b,k-a-b]});SV.xl=SV.alv.map(L=>L-1);SV.xp=SV.am.map(m=>(m[0]+m[1]+m[2])/3);SV.pts=[0,0,0,0,0];SV.ptsv=1}if(!SV.audfix){SV.snd=1;SV.mus=1;SV.audfix=1}if(!SV.autoFix2){SV.autoUp=0;SV.autoFix2=1}}catch(e){SV=JSON.parse(JSON.stringify(DEF))}
 const save=()=>{try{localStorage.archerTD=JSON.stringify(SV)}catch(e){}};
 const packMul=()=>1;const MAXUP=40;
 const paid=()=>SV.evo||SV.maxp||SV.pack>0; // legacy pack buyers keep speed unlock
@@ -36,7 +36,7 @@ const lvPower=L=>lvAtk(L)*lvSpd(L)*(1+.7*(arrowsFor(L)-1));
 // XP -> points: each XP level grants 1 upgrade point to that archer type. Archer level = 1 + points spent.
 const xpNeed=t=>meterN(SV.xl[t]+1);
 function addXP(t,x){SV.xp[t]+=x;let got=0;while(SV.xp[t]>=xpNeed(t)){SV.xp[t]-=xpNeed(t);SV.xl[t]++;SV.pts[t]++;got++}
- if(got&&G){const i=G.slots.findIndex(s=>s&&s.t==t);if(i>=0){G.txt.push({x:SLOTX[i],y:SLOTY[i]-64,s:'+'+got+' ⬆ point',l:1.4,c:'#7fffd4',sm:1});ring(SLOTX[i],SLOTY[i],34,'#7fffd4')}SFX.pick();vib(20);save();if(SV.autoUp&&mode=='play')upgMenu()}}
+ if(got&&G){const i=G.slots.findIndex(s=>s&&s.t==t);if(i>=0){G.txt.push({x:SLOTX[i],y:SLOTY[i]-64,s:'+'+got+' ⬆ point',l:1.4,c:'#7fffd4',sm:1});ring(SLOTX[i],SLOTY[i],34,'#7fffd4')}SFX.pick();vib(20);save();if(SV.autoLv){while(SV.pts[t]>0){const ap=SV.ap[t];spend(t,ap.indexOf(Math.min(...ap)))}}else if(SV.autoUp&&mode=='play')upgMenu()}}
 function spend(t,k){if(SV.pts[t]<=0)return;const L0=SV.alv[t];SV.pts[t]--;SV.ap[t][k]++;SV.alv[t]=1+SV.ap[t][0]+SV.ap[t][1]+SV.ap[t][2];save();const L=SV.alv[t];
  if(arrowsFor(L)>arrowsFor(L0)){evolveFx(t,L);[392,523,659,784,1047,1319].forEach((f,i)=>tone(f,f,.22,'square',.06,i*.06));tone(110,55,.6,'sawtooth',.12);noise(.5,500,6000,.15,'bandpass',.1,2);vib([40,30,40,30,120])}
  else{[523,784,1047].forEach((f,i)=>tone(f*(1+k*.12),f,.12,'triangle',.08,i*.04));noise(.12,6000,2500,.08,'highpass');vib(15)}}
@@ -56,7 +56,7 @@ function upgMenu(){if(!G)return;mode='upg';ui.style.display='block';const types=
   <div style="display:flex;gap:4px;margin-top:6px">${B(0,'ATK','#c0392b','×'+aAtk(t).toFixed(2)+' ('+a[0]+')')}${B(1,'SPD','#2471a3','×'+aSpd(t).toFixed(2)+' ('+a[1]+')')}${B(2,'RNG','#229954',rng+'px ('+a[2]+')')}</div>
   ${aimed?`<button class=btn style="background:#555;font-size:13px" onclick="G.slots.forEach(s=>{if(s&&s.t==${t})s.aim=null});upgMenu()">🎯 Reset aim to auto</button>`:''}</div>`});
  h+=`<button class=btn style="width:100%;font-size:22px;padding:16px;background:#3d8b2f" onclick="mode='play';ui.style.display='none';SFX.tap()">▶ Resume</button>
- <div class=row><span>Auto-open this screen when points are earned</span><button class=btn style="background:#456" onclick="SV.autoUp^=1;save();upgMenu()">${SV.autoUp?'ON':'OFF'}</button></div>`;ui.innerHTML=h}
+ <div class=row><span>Auto level (spend points automatically, evenly on ATK/SPD/RNG)</span><button class=btn style="background:#456" onclick="SV.autoLv^=1;save();if(SV.autoLv&&G){G.slots.filter(Boolean).forEach(x=>{while(SV.pts[x.t]>0){const ap=SV.ap[x.t];spend(x.t,ap.indexOf(Math.min(...ap)))}})}upgMenu()">${SV.autoLv?'AUTO':'MANUAL'}</button></div><div class=row><span>Auto-open this screen when points are earned</span><button class=btn style="background:#456" onclick="SV.autoUp^=1;save();upgMenu()">${SV.autoUp?'ON':'OFF'}</button></div>`;ui.innerHTML=h}
 const mBelow=i=>SLOTY[i]>BY+20,mTop=i=>mBelow(i)?SLOTY[i]+36:SLOTY[i]-44;
 function otext(t,x,y,sz,c){cx.font='bold '+sz+'px sans-serif';cx.lineJoin='round';cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=3;cx.strokeText(t,x,y);cx.fillStyle=c;cx.fillText(t,x,y)}
 function meterAt(x,y){for(let i=0;i<5;i++){const s=G.slots[i];if(s&&Math.abs(x-SLOTX[i])<26){const o=y-mTop(i)+2;if(o>=0&&o<22)return[s.t,Math.min(2,Math.floor(o/7))+1,i]}}return null}
