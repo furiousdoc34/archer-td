@@ -152,7 +152,7 @@ wolf:{n:'Werewolf',hp:34,sp:46,arm:.05,g:5,r:11,c:'#779',un:8,cnt:.9,leap:1,dmg:
 lizard:{n:'Lizard Man',hp:40,sp:30,arm:.12,g:5,r:11,c:'#3a8',un:15,cnt:1,ranged:1,tiers:['Lizard Lord','Skirmisher','Spearman','Hunter','Elite Guard']},
 mirror:{n:'Mirror Archer',hp:30,sp:30,arm:.05,g:7,r:11,c:'#7a1020',un:3,cnt:.4,tiers:['Dark Marksman','Mirror Captain','Mirror Archer','Shade Bowman','Void Sniper']},/* ATD-V6-MIRROR */
 wraith:{n:'Flying Wraith',hp:26,sp:48,arm:0,g:6,r:11,c:'#b8c8ff',un:6,cnt:.35,air:1,tiers:['Wraith Lord','Shade Wraith','Dread Wraith','Soul Wraith','Soul Wraith']},skyb:{n:'Sky Banshee',hp:40,sp:28,arm:.05,g:8,r:12,c:'#d9a8ff',un:8,cnt:.3,air:1,tiers:['Banshee Queen','Spirit Banshee','Screaming Banshee','Night Banshee','Night Banshee']},/* ATD-V7-FLYERS */
-dragon:{n:'Dragon',hp:55,sp:34,arm:.08,g:8,r:13,c:'#c0392b',un:4,cnt:.4,air:1,tiers:['Dragon King','Young Dragon','Battle Dragon','Ancient Dragon','Ancient Dragon']},/* ATD-V4 flyer: immune to logs, flies over fences/troops */
+dragon:{n:'Dragon',hp:55,sp:34,arm:.08,g:8,r:13,c:'#c0392b',un:4,cnt:.4,air:1,tiers:['Dragon King','Young Dragon','Battle Dragon','Ancient Dragon','Ancient Dragon']},/* ATD-V4 flyer: immune to logs, flies over logs/rock fences/troops; ice walls stop flyers */
 banshee:{n:'Banshee',hp:30,sp:30,arm:0,g:6,r:11,c:'#a8f',un:25,cnt:.7,air:1,curse:1,tiers:['Banshee Queen','Wraith','Banshee','Screamer','Nightmare']},
 mino:{n:'Minotaur',hp:140,sp:15,arm:.15,g:12,r:14,c:'#a63',un:40,cnt:.5,dmg:2,tiers:['Minotaur Overlord','Young Minotaur','Battle Minotaur','Warlord']},
 golem:{n:'Golem',hp:260,sp:10,arm:.35,g:18,r:15,c:'#987',un:60,cnt:.35,dmg:3,tiers:['Elder Golem','Stone Golem','Crystal Golem','Lava Golem','Forest Golem','Iron Golem']}};
@@ -219,14 +219,14 @@ const skillDmg=t=>TYPES[t].dmg*tPower(t)*dmgMul()*evoMul().d*(1+G.st.n*.025);
 const hasType=t=>G.slots.some(s=>s&&s.t==t);
 function castSkill(t,x,y,dx,dy){const g=G,L=SV.alv[t],b=skillDmg(t);if(g.energy<SKILL[t].e||g.sk[t]>0)return false;g.energy-=SKILL[t].e;g.sk[t]=SKILL[t].cd*(t==4?1-.65*(SV.pw[4]-1)/99:1);const P=SV.pw[t],M=pwM(t);g.txt.push({x,y:y-30,s:SKILL[t].n+' Lv'+L,l:1,c:TYPES[t].c});
  if(t==0){g.zones.push({x,y,r:70*Math.min(2,1+(P-1)*.01),l:3*Math.min(2,1+(P-1)*.01),tk:0,aL:L,b:b*M});tone(300,60,.8,'sawtooth',.1);noise(1.5,1200,200,.25,'lowpass');vib([40,40,40,40,40])}
- if(t==1||t==3){const px=1,py=0,h=44;
+ if(t==1||t==3){const px=1,py=0,h=44*(1+(P-1)/99);
   g.walls.push({x1:x-px*h,y1:y-py*h,x2:x+px*h,y2:y+py*h,ice:t==1,hp:(t==3?14:8)*(1+L*.01)*M,max:(t==3?14:8)*(1+L*.01)*M,aL:L});
   if(t==3){tone(90,40,.4,'square',.2);noise(.5,900,100,.4);for(let i=0;i<4;i++)noise(.08,2500,600,.2,'bandpass',.08*i,2);vib([80,30,60])}
   else{SFX.freeze()}G.shake=.2;ring(x,y,50,TYPES[t].c)}
  if(t==2){for(let k=0;k<6;k++){const ax=x+(Math.random()-.5)*120,ay=y+(Math.random()-.5)*120;g.fx.push({bolt:1,x1:ax+(Math.random()-.5)*40,y1:ay-260,x2:ax,y2:ay,l:.35})}
   g.fx.push({img:'light',x,y,l:.5,s:150});ring(x,y,95,'#ffe23b');ring(x,y,60,'#fff');g.shake=.4;SFX.crackle();SFX.boom();
   g.en.forEach(e=>{const LR=95*Math.min(1.8,1+(P-1)*.008);if(Math.hypot(e.x-x,e.y-y)<LR){hit(e,b*10*M,'#ff0',L,2);const c=ccF(L,e);if(c>0)e.stun=Math.max(e.stun,Math.min(3,1+(P-1)*.02)*c)}})}
- if(t==4){let l=Math.hypot(dx,dy);if(l<5){dx=0;dy=-1;l=1}const nl=P>=75?3:P>=30?2:1,sz=1+2*(P-1)/99,nx=-dy/l,ny=dx/l;for(let i=0;i<nl;i++){const o=(i-(nl-1)/2)*70*sz;g.logs.push({x:x+nx*o,y:y+ny*o,dx:dx/l,dy:dy/l,d:0,hs:new Set(),aL:L,b:b*M,sz,crush:30*Math.pow(M,1.6)*(1+G.st.n*.08)})}/* ATD-V4 side-tower logs roll horizontally */const ly=Math.max(60,Math.min(WALLY-50,y));if(SV.sideT.l)g.logs.push({x:-10,y:ly,dx:1,dy:0,d:0,hs:new Set(),aL:L,b:b*M,sz,crush:30*Math.pow(M,1.6)*(1+G.st.n*.08),side:1});if(SV.sideT.r)g.logs.push({x:370,y:ly,dx:-1,dy:0,d:0,hs:new Set(),aL:L,b:b*M,sz,crush:30*Math.pow(M,1.6)*(1+G.st.n*.08),side:1});SFX.whoosh();tone(120,60,1,'triangle',.18);vib([30,30,30,30,30,30])}}
+ if(t==4){/* ATD-V11: hero logs roll strictly bottom-to-top from the wall */const cy0=y;dx=0;dy=-1;let l=1;y=WALLY-20;const nl=P>=75?3:P>=30?2:1,sz=1+2*(P-1)/99,nx=-dy/l,ny=dx/l;for(let i=0;i<nl;i++){const o=(i-(nl-1)/2)*70*sz;g.logs.push({x:x+nx*o,y:y+ny*o,dx:dx/l,dy:dy/l,d:0,hs:new Set(),aL:L,b:b*M,sz,crush:30*Math.pow(M,1.6)*(1+G.st.n*.08)})}/* ATD-V4 side-tower logs roll horizontally */const ly=Math.max(60,Math.min(WALLY-50,cy0));if(SV.sideT.l)g.logs.push({x:-10,y:ly,dx:1,dy:0,d:0,hs:new Set(),aL:L,b:b*M,sz,crush:30*Math.pow(M,1.6)*(1+G.st.n*.08),side:1});if(SV.sideT.r)g.logs.push({x:370,y:ly,dx:-1,dy:0,d:0,hs:new Set(),aL:L,b:b*M,sz,crush:30*Math.pow(M,1.6)*(1+G.st.n*.08),side:1});SFX.whoosh();tone(120,60,1,'triangle',.18);vib([30,30,30,30,30,30])}}
 // ---- update ----
 function update(dt){const g=G;g.t+=dt;g.vol=Math.max(0,g.vol-dt);g.shake=Math.max(0,g.shake-dt);for(let i=0;i<5;i++)g.sk[i]=Math.max(0,g.sk[i]-dt);
  if(!g.spawnQ.length&&!g.en.length){g.waveT-=dt;if(g.waveT<=0){if(g.wave>=g.st.waves.length)return win();g.spawnQ=g.st.waves[g.wave].slice();g.wave++;g.waveT=3;SFX.horn();callout(g.spawnQ.length>70||g.hp<g.maxhp*.35?'HOLD THE FORT!':g.wave==g.st.waves.length?'FINAL WAVE!':'GET THEM!',g.spawnQ.length>70?'#ff5a5a':'#ffd84a',1)}}
@@ -244,22 +244,22 @@ function update(dt){const g=G;g.t+=dt;g.vol=Math.max(0,g.vol-dt);g.shake=Math.ma
   for(const o of g.en){if(o===e||o.air!==e.air)continue;const ox=e.x-o.x,oy=e.y-o.y,d=Math.hypot(ox,oy),m=e.r+o.r+4;if(d<m&&d>.01){dx+=ox/d*3.2*(1-d/m);dy+=oy/d*1.2*(1-d/m)}}
   let blk=false;
   if(!e.air){for(const[ox,oy,rr]of g.st.obst){const ax=e.x-ox,ay=e.y-oy,d=Math.hypot(ax,ay)||1,m=rr+e.r+16;if(d<m){const k=(1-d/m)*3;dx+=ax/d*k+(ax>=0?1:-1)*k*.8;dy+=ay/d*k*.5}}
-   for(const w of g.walls){const dd=segD(e.x,e.y,w),wy=(w.y1+w.y2)/2,lx=Math.min(w.x1,w.x2),hx=Math.max(w.x1,w.x2);
+}/* ATD-V11-BLOCK: fences block their lane (no sidestep); ice walls also block flyers */
+   for(const w of g.walls){if(e.air&&!w.ice)continue;const dd=segD(e.x,e.y,w),wy=(w.y1+w.y2)/2,lx=Math.min(w.x1,w.x2),hx=Math.max(w.x1,w.x2);
     if(w.ice&&dd<44){const c=ccF(w.aL,e);if(c>0)e.slow=Math.max(e.slow,.3);if(dd<e.r+8&&c>0){e.frz=(e.frz||0)-dt;if(e.frz<=0){e.frz=1.6;e.stun=1.1*c}}}
-    if(e.y<wy&&dd<e.r+40&&e.x>lx-e.r&&e.x<hx+e.r)dx+=(e.x-lx<hx-e.x?-1:1)*2.2;
-    if(dd<e.r+6&&e.y<wy){blk=true;w.hp-=dt*(1+.3*e.t)*(e.boss?4:1)/lvF(w.aL,e.lv)}}}
+    if(e.y<wy+2&&wy-e.y<e.r+8&&e.x>lx-e.r*.6&&e.x<hx+e.r*.6){blk=true;w.hp-=dt*(1+.3*e.t)*(e.boss?4:1)/lvF(w.aL,e.lv);g.fenceBlocks=(g.fenceBlocks||0)+1}}
   const vl=Math.hypot(dx,dy)||1;e.vx+=(dx/vl-e.vx)*Math.min(1,dt*6);e.vy+=(dy/vl-e.vy)*Math.min(1,dt*6);
   if(e.air)e.vy=Math.max(e.vy,.35);else e.vy=Math.max(e.vy,-.3);
-  e.x+=e.vx*sp*dt;if(!blk||e.vy<0)e.y+=e.vy*sp*dt;
+  if(!blk)e.x+=e.vx*sp*dt;if(!blk||e.vy<0)e.y+=e.vy*sp*dt;
   if(e.y>20)e.x=Math.max(10,Math.min(350,e.x))}
  g.en=g.en.filter(e=>e.hp>0);ebUpdate(g,dt);if(allDown(g))return lose();
  // walls
  g.walls.forEach(w=>{if(w.hp<=0){w.dead=1;const mx=(w.x1+w.x2)/2,my=(w.y1+w.y2)/2;for(let i=0;i<16;i++)g.fx.push({x:mx+(Math.random()-.5)*80,y:my,vx:(Math.random()-.5)*160,vy:-Math.random()*160,l:.6,c:w.ice?'#bfefff':'#8a7a66',s:5});noise(.3,w.ice?6000:900,200,.2)}});g.walls=g.walls.filter(w=>!w.dead);
  // rolling logs
- for(const L of g.logs){/* ATD-V10 logs: 18px/s, >=20s on field (bounce at edges until 20s) */const st=18*dt;L.age=(L.age||0)+dt;L.x+=L.dx*st;L.y+=L.dy*st;L.d+=st;
+ for(const L of g.logs){/* ATD-V11 logs: 18px/s one direction only (vertical ~25s, horizontal ~22s across) */const st=18*dt;L.age=(L.age||0)+dt;L.x+=L.dx*st;L.y+=L.dy*st;L.d+=st;
   for(const e of g.en){if(e.air||L.hs.has(e))continue;const rx=e.x-L.x,ry=e.y-L.y,al=rx*L.dx+ry*L.dy,pe=Math.abs(-rx*L.dy+ry*L.dx);
    if(Math.abs(al)<12*L.sz+e.r&&pe<32*L.sz){L.hs.add(e);if(!e.boss&&e.max<L.crush){G.txt.push({x:e.x,y:e.y-20,s:'CRUSH!',l:.7,c:'#ffb347'});hit(e,e.hp+1e9,'#a6782c',L.aL,4)}else hit(e,L.b*5,'#a6782c',L.aL,4);const c=ccF(L.aL,e);if(c>0){e.x+=L.dx*45*c;e.y+=L.dy*45*c;e.stun=Math.max(e.stun,.6*c)}tone(140,70,.08,'square',.06);vib(10)}}
-  {const out=L.x<-20||L.x>380||L.y<10||L.y>WALLY;if(out&&L.age<20){if(L.x<-20||L.x>380)L.dx=-L.dx;if(L.y<10||L.y>WALLY)L.dy=-L.dy;L.x=Math.max(-20,Math.min(380,L.x));L.y=Math.max(10,Math.min(WALLY,L.y))}else if(out||L.age>40)L.dead=1}}g.logs=g.logs.filter(l=>!l.dead);
+  if(L.x<-30||L.x>390||L.y<-30||L.y>WALLY+10||L.age>60)L.dead=1}g.logs=g.logs.filter(l=>!l.dead);
  // hailstorm zones + fireballs
  for(const z of g.zones){z.l-=dt;z.tk-=dt;while(z.tk<=0&&z.l>0){z.tk+=.07;const a=Math.random()*7,rr=Math.sqrt(Math.random())*z.r;g.fbs.push({x:z.x+Math.cos(a)*rr,y:z.y+Math.sin(a)*rr,h:150,b:z.b,aL:z.aL})}}g.zones=g.zones.filter(z=>z.l>0);
  for(const f of g.fbs){f.h-=460*dt;if(f.h<=0){f.dead=1;g.fx.push({img:'fire',x:f.x,y:f.y,l:.3,s:30});if(Math.random()<.3)noise(.12,1500,200,.1);
@@ -324,7 +324,7 @@ function hypeUpdate(g,dt){if(CO)CO.l-=dt;if(TIP)TIP.l-=dt;g.kt=(g.kt||[]).filter
  if(g.en.filter(e=>e.f=='mirror'&&e.y>=e.stopY).length>=2&&tip('Enemy archers are shooting your towers - aim at them!'))return;
  if(g.en.filter(e=>e.f=='wraith').length>=3&&tip('Wraiths phase out - Fire and Bolt cut through them!'))return;
  if(g.en.filter(e=>e.f=='skyb').length>=2&&tip('Sky Banshees slow your archers - snipe them with Bolt or Wood!'))return;
- if(g.en.filter(e=>e.f=='dragon').length>=3&&tip('Dragons fly over logs - use Bolt or Laser!'))return;
+ if(g.en.filter(e=>e.f=='dragon').length>=3&&tip('Dragons fly over logs & Rock Fences - use Bolt, Laser or an Ice Fence!'))return;
  if(g.hp<g.maxhp*.5&&g.energy>=repCost()&&tip('Tap 🔧 Repair to patch the wall'))return;
  if(SV.pool>=5&&SV.tw.d<10&&tip('Invest in Tower Defense to evolve a Super Fort'))return;
  if(SV.pool>=3)tip('Unspent points! Open ⬆ Upgrade')}
@@ -594,7 +594,7 @@ function draw(){const g=G;cx.save();if(g.shake>0)cx.translate((Math.random()-.5)
   else if(d.trap!=null){const K=TRAP[d.trap];cx.globalAlpha=.8;cx.strokeStyle=K.c;cx.lineWidth=3;cx.fillStyle='rgba(255,255,255,.12)';cx.beginPath();cx.arc(d.x,d.y,tpR(d.trap),0,7);cx.fill();cx.stroke();cx.globalAlpha=1}
   else if(d.skill!=null){const K=SKILL[d.skill],T=TYPES[d.skill];cx.globalAlpha=.8;cx.strokeStyle=T.c;cx.lineWidth=3;cx.fillStyle='rgba(255,255,255,.12)';
    if(K.r){cx.beginPath();cx.arc(d.x,d.y,K.r,0,7);cx.fill();cx.stroke()}
-   else if(K.wall){const px=44,py=0;cx.lineWidth=12;cx.lineCap='round';cx.beginPath();cx.moveTo(d.x-px,d.y-py);cx.lineTo(d.x+px,d.y+py);cx.stroke()}
+   else if(K.wall){const px=44*(1+(SV.pw[d.skill]-1)/99),py=0;cx.lineWidth=12;cx.lineCap='round';cx.beginPath();cx.moveTo(d.x-px,d.y-py);cx.lineTo(d.x+px,d.y+py);cx.stroke()}
    else{const h=d.h,a=h[0],b=h[h.length-1];let dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy);if(l<5){dx=0;dy=-1;l=1}dash(d.x,d.y,d.x+dx/l*120,d.y+dy/l*120,'#d9b27a')}
    dimg(IMG[T.k].hit,d.x,d.y,36);cx.globalAlpha=1}
   else if(d.card!=null){cx.globalAlpha=.7;if(!dimg(IMG[TYPES[d.card].k].portrait,d.x,d.y,50)){cx.fillStyle=TYPES[d.card].c;cx.beginPath();cx.arc(d.x,d.y,18,0,7);cx.fill()}cx.globalAlpha=1}}
