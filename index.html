@@ -14,8 +14,8 @@ const W=360,H=640,cv=document.getElementById('c'),cx=cv.getContext('2d'),ui=docu
 let S=1;function fit(){S=Math.min(innerWidth/W,innerHeight/H);const d=devicePixelRatio||1;cv.width=W*S*d;cv.height=H*S*d;cv.style.width=W*S+'px';cv.style.height=H*S+'px';cx.setTransform(S*d,0,0,S*d,0,0)}addEventListener('resize',fit);fit();
 function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 // ---- save ----
-const DEF={stage:1,max:1,coins:0,up:{dmg:0,rate:0,energy:0,hp:0,volley:0},pack:0,snd:1,vib:1,mus:1,evo:0,maxp:0,spd:1,alv:[1,1,1,1,1],am:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],adir:[0,0,0,0,0],audfix:0};
-let SV;try{SV=Object.assign({},DEF,JSON.parse(localStorage.archerTD||'{}'));SV.up=Object.assign({},DEF.up,SV.up);SV.am=(SV.am||DEF.am).map(m=>m.length<3?m.concat([0]):m);if(!SV.audfix){SV.snd=1;SV.mus=1;SV.audfix=1}}catch(e){SV=JSON.parse(JSON.stringify(DEF))}
+const DEF={stage:1,max:1,coins:0,up:{dmg:0,rate:0,energy:0,hp:0,volley:0},pack:0,snd:1,vib:1,mus:1,evo:0,maxp:0,spd:1,alv:[1,1,1,1,1],am:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],adir:[0,0,0,0,0],audfix:0,xl:[0,0,0,0,0],xp:[0,0,0,0,0],pts:[0,0,0,0,0],ap:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],autoUp:0,ptsv:0};
+let SV;try{SV=Object.assign({},DEF,JSON.parse(localStorage.archerTD||'{}'));SV.up=Object.assign({},DEF.up,SV.up);SV.am=(SV.am||DEF.am).map(m=>m.length<3?m.concat([0]):m);if(!SV.ptsv){SV.ap=SV.alv.map(L=>{const k=L-1,a=Math.ceil(k*.45),b=Math.ceil((k-a)*.7);return[a,b,k-a-b]});SV.xl=SV.alv.map(L=>L-1);SV.xp=SV.am.map(m=>(m[0]+m[1]+m[2])/3);SV.pts=[0,0,0,0,0];SV.ptsv=1}if(!SV.audfix){SV.snd=1;SV.mus=1;SV.audfix=1}}catch(e){SV=JSON.parse(JSON.stringify(DEF))}
 const save=()=>{try{localStorage.archerTD=JSON.stringify(SV)}catch(e){}};
 const packMul=()=>1;const MAXUP=40;
 const paid=()=>SV.evo||SV.maxp||SV.pack>0; // legacy pack buyers keep speed unlock
@@ -26,18 +26,37 @@ const meterN=L=>L<=4?[100,300,500,1000][L-1]:Math.round(1000*Math.pow(1+(L-4)*.6
 const arrowsFor=L=>L<=1?1:L<=10?2:L<=50?3:L<=100?4:L<=250?5:L<=500?6:7+Math.floor(Math.log2(L/500));
 const lvAtk=L=>1+.06*(L-1),lvSpd=L=>Math.min(3.5,1+.025*(L-1));
 const xpMul=()=>SV.maxp?3:SV.evo?2:1;
-const killXP=(e,n)=>e.g*2*Math.pow(1+n*.03,1.6)*(e.boss?3:1)*xpMul();
+const killXP=(e,n)=>e.g*.67*Math.pow(1+n*.03,1.6)*(e.boss?3:1)*xpMul();
 // expected free-player level by stage (from XP economy sim), used to scale enemy HP
 const LEXP=[[1,1],[10,5],[30,7],[50,9],[100,16],[200,36],[300,60],[400,85],[500,107]];
 function lexp(n){for(let i=1;i<LEXP.length;i++)if(n<=LEXP[i][0]){const[a,b]=LEXP[i-1],[c,d]=LEXP[i];return b+(d-b)*(n-a)/(c-a)}return 107}
+const aAtk=t=>1+.12*SV.ap[t][0],aSpd=t=>Math.min(3.5,1+.05*SV.ap[t][1]),aRng=t=>Math.min(1.8,1+.02*SV.ap[t][2]);
+const tPower=t=>aAtk(t)*aSpd(t)*(1+.7*(arrowsFor(SV.alv[t])-1));
 const lvPower=L=>lvAtk(L)*lvSpd(L)*(1+.7*(arrowsFor(L)-1));
-function addXP(t,x){const m=SV.am[t],L=SV.alv[t],N=meterN(L),d=SV.adir[t];let k=d>0?d-1:[0,1,2].sort((a,b)=>m[a]-m[b])[0];
- for(let tries=0;tries<3&&x>0;tries++){if(m[k]>=N){k=[0,1,2].filter(j=>m[j]<N).sort((a,b)=>m[a]-m[b])[0];if(k==null)break}const add=Math.min(N-m[k],x);m[k]+=add;x-=add}
- if(m[0]>=N&&m[1]>=N&&m[2]>=N)evolve(t)}
-function evolve(t){SV.alv[t]++;SV.am[t]=[0,0,0];save();if(!G)return;const L=SV.alv[t];
- G.slots.forEach((s,i)=>{if(s&&s.t==t){ring(SLOTX[i],SLOTY[i],46,'#ffd84a');ring(SLOTX[i],SLOTY[i],30,TYPES[t].c);for(let k=0;k<20;k++)G.fx.push({x:SLOTX[i],y:SLOTY[i],vx:(Math.random()-.5)*260,vy:-Math.random()*260,l:.7,c:'#ffd84a',s:4});
-  G.txt.push({x:SLOTX[i],y:SLOTY[i]-66,s:'EVOLVE! Lv'+L+(arrowsFor(L)>arrowsFor(L-1)?' ➶'+arrowsFor(L):''),l:1.6})}});
- [392,523,659,784,1047,1319].forEach((f,i)=>tone(f,f,.22,'square',.06,i*.06));tone(110,55,.6,'sawtooth',.12);noise(.5,500,6000,.15,'bandpass',.1,2);vib([40,30,40,30,120])}
+// XP -> points: each XP level grants 1 upgrade point to that archer type. Archer level = 1 + points spent.
+const xpNeed=t=>meterN(SV.xl[t]+1);
+function addXP(t,x){SV.xp[t]+=x;let got=0;while(SV.xp[t]>=xpNeed(t)){SV.xp[t]-=xpNeed(t);SV.xl[t]++;SV.pts[t]++;got++}
+ if(got&&G){const i=G.slots.findIndex(s=>s&&s.t==t);if(i>=0){G.txt.push({x:SLOTX[i],y:SLOTY[i]-64,s:'+'+got+' ⬆ point',l:1.4,c:'#7fffd4',sm:1});ring(SLOTX[i],SLOTY[i],34,'#7fffd4')}SFX.pick();vib(20);save();if(SV.autoUp&&mode=='play')upgMenu()}}
+function spend(t,k){if(SV.pts[t]<=0)return;const L0=SV.alv[t];SV.pts[t]--;SV.ap[t][k]++;SV.alv[t]=1+SV.ap[t][0]+SV.ap[t][1]+SV.ap[t][2];save();const L=SV.alv[t];
+ if(arrowsFor(L)>arrowsFor(L0)){evolveFx(t,L);[392,523,659,784,1047,1319].forEach((f,i)=>tone(f,f,.22,'square',.06,i*.06));tone(110,55,.6,'sawtooth',.12);noise(.5,500,6000,.15,'bandpass',.1,2);vib([40,30,40,30,120])}
+ else{[523,784,1047].forEach((f,i)=>tone(f*(1+k*.12),f,.12,'triangle',.08,i*.04));noise(.12,6000,2500,.08,'highpass');vib(15)}}
+function evolveFx(t,L){if(!G)return;G.slots.forEach((s,i)=>{if(s&&s.t==t){ring(SLOTX[i],SLOTY[i],46,'#ffd84a');for(let k=0;k<20;k++)G.fx.push({x:SLOTX[i],y:SLOTY[i],vx:(Math.random()-.5)*260,vy:-Math.random()*260,l:.7,c:'#ffd84a',s:4});G.txt.push({x:SLOTX[i],y:SLOTY[i]-66,s:'EVOLVE! ➶'+arrowsFor(L)+' arrows',l:1.8})}})}
+const totPts=()=>SV.pts.reduce((a,b)=>a+b,0);
+function upgMenu(){if(!G)return;mode='upg';ui.style.display='block';const types=[...new Set(G.slots.filter(Boolean).map(s=>s.t))];
+ const f=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e4?Math.floor(v/1e3)+'k':Math.floor(v);
+ let h=`<h2>⬆ Upgrade archers <small style="opacity:.7">(game paused)</small></h2><p style="margin:4px 0">Kills give XP. Each XP level = <b>1 point</b>. Spend points on ATK, SPD or RNG. Archer level = 1 + points spent; more arrows at <b>Lv2, Lv11, Lv51, Lv101, Lv251</b>…</p>`;
+ if(!types.length)h+='<p>Deploy an archer first.</p>';
+ types.forEach(t=>{const T=TYPES[t],L=SV.alv[t],p=SV.pts[t],a=SV.ap[t],nx=[2,11,51,101,251,501].find(v=>v>L),rng=Math.round(T.range*aRng(t)),aimed=G.slots.some(s=>s&&s.t==t&&s.aim);
+  const B=(k,l,c,v)=>`<button class=btn style="flex:1;font-size:17px;padding:12px 4px;background:${p>0?c:'#444'};opacity:${p>0?1:.6}" onclick="spend(${t},${k});upgMenu()">+${l}<br><small style="font-weight:400">${v}</small></button>`;
+  h+=`<div style="background:#22361b;border:2px solid ${T.c};border-radius:12px;padding:8px;margin:8px 0">
+  <div style="display:flex;align-items:center;gap:8px"><img src="${ART[T.k].portrait}" style="height:64px">
+   <div style="flex:1"><b style="font-size:17px">${T.n}</b> <span style="color:#ffd84a;font-weight:700">Lv${L} · ➶${arrowsFor(L)} arrow${arrowsFor(L)>1?'s':''}</span>${nx?`<br><small>Next arrow at Lv${nx}</small>`:''}
+   <div style="background:#000;height:8px;border-radius:4px;margin-top:4px"><div style="background:#7fffd4;height:8px;border-radius:4px;width:${Math.min(100,SV.xp[t]/xpNeed(t)*100)}%"></div></div><small>XP ${f(SV.xp[t])} / ${f(xpNeed(t))}</small></div>
+   <div style="text-align:center;min-width:54px"><div style="font-size:26px;font-weight:800;color:${p>0?'#7fffd4':'#888'}">${p}</div><small>points</small></div></div>
+  <div style="display:flex;gap:4px;margin-top:6px">${B(0,'ATK','#c0392b','×'+aAtk(t).toFixed(2)+' ('+a[0]+')')}${B(1,'SPD','#2471a3','×'+aSpd(t).toFixed(2)+' ('+a[1]+')')}${B(2,'RNG','#229954',rng+'px ('+a[2]+')')}</div>
+  ${aimed?`<button class=btn style="background:#555;font-size:13px" onclick="G.slots.forEach(s=>{if(s&&s.t==${t})s.aim=null});upgMenu()">🎯 Reset aim to auto</button>`:''}</div>`});
+ h+=`<button class=btn style="width:100%;font-size:22px;padding:16px;background:#3d8b2f" onclick="mode='play';ui.style.display='none';SFX.tap()">▶ Resume</button>
+ <div class=row><span>Auto-open this screen when points are earned</span><button class=btn style="background:#456" onclick="SV.autoUp^=1;save();upgMenu()">${SV.autoUp?'ON':'OFF'}</button></div>`;ui.innerHTML=h}
 const mBelow=i=>SLOTY[i]>BY+20,mTop=i=>mBelow(i)?SLOTY[i]+36:SLOTY[i]-44;
 function otext(t,x,y,sz,c){cx.font='bold '+sz+'px sans-serif';cx.lineJoin='round';cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=3;cx.strokeText(t,x,y);cx.fillStyle=c;cx.fillText(t,x,y)}
 function meterAt(x,y){for(let i=0;i<5;i++){const s=G.slots[i];if(s&&Math.abs(x-SLOTX[i])<26){const o=y-mTop(i)+2;if(o>=0&&o<22)return[s.t,Math.min(2,Math.floor(o/7))+1,i]}}return null}
@@ -123,7 +142,7 @@ const DROPS=[{k:'bomb',c:'#333',i:'💣'},{k:'storm',c:'#ff0',i:'⚡'},{k:'sword
 const WALLY=462,BX=180,BY=500,SLOTX=[44,112,180,248,316],SLOTY=[490,484,482,484,490];
 const SKY=548,SKX=[44,112,180,248,316];
 const lvRng=L=>Math.min(1.8,1+.008*(L-1));
-const srange=s=>(TYPES[s.t].range+s.lv*8)*lvRng(SV.alv[s.t]);
+const srange=s=>(TYPES[s.t].range+s.lv*8)*aRng(s.t);
 // effective level: enemy rank vs archer/skill level -> damage & control falloff
 const lvF=(aL,eL)=>{const r=aL/eL;return r>=1?1+Math.min(.2,(r-1)*.1):.25+.75*r*r};
 const ccF=(aL,e)=>{const r=aL/e.lv,v=r>=1?1:r<.5?0:(r-.5)*2;return e.boss?v*.5:v};
@@ -170,7 +189,7 @@ const aMaxLv=()=>{let m=1;G.slots.forEach(s=>{if(s)m=Math.max(m,SV.alv[s.t])});r
 function volley(x,y){if(G.vol>0)return;G.vol=G.volCd;SFX.volley();const R=60+SV.up.volley*6,aL=aMaxLv();
  for(let i=0;i<18;i++)G.ar.push({x:SLOTX[i%5],y:SLOTY[i%5],tx:x+(Math.random()-.5)*R*1.5,ty:y+(Math.random()-.5)*R*1.5,v:600,c:'#fff',vol:1,aL,d:(12+G.st.n*.5)*dmgMul()*Math.sqrt(lvPower(aL))})}
 // ---- skills ----
-const skillDmg=t=>TYPES[t].dmg*lvPower(SV.alv[t])*dmgMul()*evoMul().d*(1+G.st.n*.025);
+const skillDmg=t=>TYPES[t].dmg*tPower(t)*dmgMul()*evoMul().d*(1+G.st.n*.025);
 const hasType=t=>G.slots.some(s=>s&&s.t==t);
 function castSkill(t,x,y,dx,dy){const g=G,L=SV.alv[t],b=skillDmg(t);g.sk[t]=SKILL[t].cd;g.txt.push({x,y:y-30,s:SKILL[t].n+' Lv'+L,l:1,c:TYPES[t].c});
  if(t==0){g.zones.push({x,y,r:70,l:3,tk:0,aL:L,b});tone(300,60,.8,'sawtooth',.1);noise(1.5,1200,200,.25,'lowpass');vib([40,40,40,40,40])}
@@ -226,7 +245,7 @@ function update(dt){const g=G;g.t+=dt;g.vol=Math.max(0,g.vol-dt);g.shake=Math.ma
   if(s.aim){ax=s.aim.x;ay=s.aim.y;const ad=Math.hypot(ax-sx,ay-sy);if(ad>rg){ax=sx+(ax-sx)/ad*rg;ay=sy+(ay-sy)/ad*rg}
    let bd=55;for(const e of inR){const d=Math.hypot(e.x-ax,e.y-ay);if(d<bd){bd=d;best=e}}if(!best&&!g.en.length)return}
   else{let bd=-1e9;for(const e of inR){if(e.y>bd){bd=e.y;best=e}}if(!best)return}
-  const na=arrowsFor(L),dd=T.dmg*(1+(s.lv-1)*.5)*evoMul().d*dmgMul()*(1+g.st.n*.025)*lvAtk(L);s.cd=T.rate/evoMul().r/lvSpd(L);
+  const na=arrowsFor(L),dd=T.dmg*(1+(s.lv-1)*.5)*evoMul().d*dmgMul()*(1+g.st.n*.025)*aAtk(s.t);s.cd=T.rate/evoMul().r/aSpd(s.t);
   if(best){const ox=s.aim?ax:best.x,oy=s.aim?ay:best.y,tg=inR.filter(o=>o!==best).sort((a,b)=>Math.hypot(a.x-ox,a.y-oy)-Math.hypot(b.x-ox,b.y-oy));
    for(let k=0;k<na;k++){const tgt=k==0?best:tg[k-1]||best,fan=(k-(na-1)/2)*40;g.ar.push({x:sx,y:sy-10,tgt,v:520,c:T.c,t:s.t,d:dd,cv:fan,aL:L})}}
   else for(let k=0;k<na;k++)g.ar.push({pt:1,x:sx,y:sy-10,tx:ax+(k-(na-1)/2)*16,ty:ay,v:520,c:T.c,t:s.t,d:dd,aL:L});
@@ -252,14 +271,14 @@ function screen(head=''){ui.style.display='block';let h=head+`<h2>🏹 Archer TD
 <button class=btn onclick="startStage(SV.stage)">▶ Play stage ${SV.stage}</button>${SV.stage>1?`<button class=btn style="background:#555" onclick="startStage(SV.stage-1)">Replay ${SV.stage-1}</button>`:''}<h3>Upgrades</h3>`;
  UPS.forEach(([k,n])=>h+=`<div class=row><span>${n} <small>(Lv ${SV.up[k]})</small></span>${SV.up[k]>=MAXUP?'<b>MAX</b>':`<button class=btn onclick="buyUp('${k}')">${upCost(k)}🪙</button>`}</div>`);
  h+=shopHTML()+`
- <p style="font-size:13px;opacity:.8">How to play: enemies roam in from the top and sides toward your wall. Tap an archer card then a slot on the wall (or drag it). Drop the same type on it to add stars. Drag from an archer onto the field to aim it (tap it to go back to auto); drag onto another slot to swap. Drag a skill icon onto the field to cast it. Tap an archer's ATK/SPD/RNG meter to steer XP. Red enemy levels resist you: level up! Tap the field to fire your Volley when charged. Tap dropped items (💣⚡⚔️❄️💰) fast before they vanish!</p>
+ <p style="font-size:13px;opacity:.8">How to play: enemies roam in from the top and sides toward your wall. Tap an archer card then a slot on the wall (or drag it). Drop the same type on it to add stars. Drag from an archer onto the field to aim it (tap it to go back to auto); drag onto another slot to swap. Drag a skill icon onto the field to cast it. Kills earn XP points: tap an archer or ⬆ Upgrade (pauses) to spend them on ATK, SPD or RNG. Red enemy levels resist you: level up! Tap the field to fire your Volley when charged. Tap dropped items (💣⚡⚔️❄️💰) fast before they vanish!</p>
  <button class=btn style="background:#733" onclick="if(confirm('Reset all progress?')){localStorage.removeItem('archerTD');location.reload()}">Reset save</button>`;ui.innerHTML=h}
 function pauseMenu(msg=''){mode='pause';screen(msg+`<h2>⏸ Paused</h2><button class=btn onclick="mode='play';ui.style.display='none'">Resume</button><button class=btn style="background:#456" onclick="SV.snd^=1;save();musicSync();pauseMenu()">🔊 Sound: ${SV.snd?'ON':'OFF'}</button><button class=btn style="background:#456" onclick="SV.vib^=1;save();if(SV.vib)vib(50);pauseMenu()">📳 Vibration: ${SV.vib?'ON':'OFF'}</button><button class=btn style="background:#456" onclick="SV.mus^=1;save();musicSync();pauseMenu()">🎵 Music: ${SV.mus?'ON':'OFF'}</button>`+shopHTML())}
 function buyUp(k){const c=upCost(k);if(SV.coins<c||SV.up[k]>=MAXUP)return;SV.coins-=c;SV.up[k]++;SFX.xp();save();screen()}
 function shopHTML(){return`<h3>Shop</h3><div class=demo>⚠️ DEMO ONLY — no real payment is made. Prices are mock and nothing is charged.</div>
  <div class=row><span><b>Evolve Pack</b><br><small>Archer evolution: every archer type gains its evolved tier (x2.2 attack, x1.6 fire rate), x2 archer XP + unlocks 3x/5x speed</small></span>${SV.evo?'<b>OWNED</b>':'<button class=btn onclick="pack(1)">$4.99 (demo)</button>'}</div>
- <div class=row><span><b>Max Pack</b><br><small>+40 evolution levels for every archer, x3 archer XP, max stars, max attack & speed upgrades + unlocks 3x/5x speed</small></span>${SV.maxp?'<b>OWNED</b>':'<button class=btn onclick="pack(2)">$9.99 (demo)</button>'}</div>`}
-function pack(n){if(!confirm('DEMO ONLY: no real money is charged. Grant pack?'))return;if(n==1)SV.evo=1;if(n==2&&!SV.maxp){for(let t=0;t<5;t++){SV.alv[t]+=40;SV.am[t]=[0,0,0]}}if(n==2){SV.maxp=1;SV.evo=1;SV.up.dmg=Math.max(SV.up.dmg,MAXUP);SV.up.rate=Math.max(SV.up.rate,MAXUP);if(G)G.slots.forEach(s=>{if(s)s.lv=5})}
+ <div class=row><span><b>Max Pack</b><br><small>+40 upgrade points for every archer, x3 archer XP, max stars, max attack & speed upgrades + unlocks 3x/5x speed</small></span>${SV.maxp?'<b>OWNED</b>':'<button class=btn onclick="pack(2)">$9.99 (demo)</button>'}</div>`}
+function pack(n){if(!confirm('DEMO ONLY: no real money is charged. Grant pack?'))return;if(n==1)SV.evo=1;if(n==2&&!SV.maxp){for(let t=0;t<5;t++){SV.pts[t]+=40;SV.xl[t]+=40}}if(n==2){SV.maxp=1;SV.evo=1;SV.up.dmg=Math.max(SV.up.dmg,MAXUP);SV.up.rate=Math.max(SV.up.rate,MAXUP);if(G)G.slots.forEach(s=>{if(s)s.lv=5})}
  SFX.win();save();if(G&&mode=='pause')pauseMenu();else screen()}
 // wall HP: repair +6 HP, or +5 max HP; costs rise with each use within a stage
 const repCost=()=>Math.floor(25*Math.pow(1.45,G.rep)),fortCost=()=>Math.floor(45*Math.pow(1.6,G.fort));
@@ -280,7 +299,7 @@ function down(ev){ev.preventDefault();if(mode!='play')return;const[x,y]=pos(ev),
  if(x>W-80&&x<W-38&&y<40){cycleSpeed();return}
  for(const d of g.drops)if(Math.hypot(d.x-x,d.y-y)<26){d.l=0;SFX.pick();useDrop(d);return}
  if(y>36&&y<58){if(x>150&&x<250){wallBtn('rep');return}if(x>254&&x<356){wallBtn('fort');return}}
- const mt=meterAt(x,y);if(mt){const[t,k,i]=mt;SV.adir[t]=SV.adir[t]==k?0:k;save();G.txt.push({x:SLOTX[i],y:SLOTY[i]-60,s:['XP: AUTO','XP → ATK','XP → SPD','XP → RNG'][SV.adir[t]],l:1,sm:1});SFX.tap();return}
+ if(x>6&&x<104&&y>60&&y<88){upgMenu();SFX.tap();vib(10);return}
  const sk=skillAt(x,y);if(sk>=0){if(g.sk[sk]<=0&&hasType(sk)){g.drag={skill:sk,x,y,h:[[x,y]]};vib(10)}else{g.txt.push({x:SKX[sk],y:SKY-26,s:hasType(sk)?Math.ceil(g.sk[sk])+'s':'Deploy '+TYPES[sk].n,l:.8,sm:1})}return}
  const c=cardAt(x,y);if(c>=0){g.drag={card:c,x,y};g.sel=c;return}
  const s=slotAt(x,y);if(s>=0){if(g.sel>=0){place(s,g.sel);return}if(g.slots[s])g.drag={slot:s,x,y,sx:x,sy:y,moved:false};return}
@@ -290,7 +309,7 @@ function up(ev){ev.preventDefault();if(!G||!G.drag)return;const[x,y]=pos(ev),d=G
  if(d.card!=null){if(s>=0)place(s,d.card);return}
  if(d.skill!=null){if(y<WALLY-4&&skillAt(x,y)<0){const h=d.h,a=h[0],b=h[h.length-1];castSkill(d.skill,x,y,b[0]-a[0],b[1]-a[1])}return}
  if(d.slot!=null){const sl=G.slots[d.slot];if(!sl)return;
-  if(!d.moved){sl.info=G.t+3;if(sl.aim){sl.aim=null;G.txt.push({x:SLOTX[d.slot],y:SLOTY[d.slot]-30,s:'AUTO',l:.8,sm:1});SFX.tap()}return}
+  if(!d.moved){upgMenu();SFX.tap();vib(10);return}
   if(s>=0&&s!=d.slot){const a=G.slots;[a[s],a[d.slot]]=[a[d.slot],a[s]];snd(400,.05);return}
   if(y<WALLY&&s<0){sl.aim={x,y};SFX.tap();vib(8)}}}
 cv.addEventListener('touchstart',down,{passive:false});cv.addEventListener('touchmove',move,{passive:false});cv.addEventListener('touchend',up,{passive:false});
@@ -335,9 +354,9 @@ function draw(){const g=G;cx.save();if(g.shake>0)cx.translate((Math.random()-.5)
   if(s&&(SV.evo||SV.maxp)){cx.fillStyle='rgba(255,210,60,.35)';cx.beginPath();cx.arc(x,y,24,0,7);cx.fill()}
   cx.textAlign='center';
   if(s){const T=TYPES[s.t];if(!dimg(IMG[T.k].portrait,x,y-3,46)){cx.fillStyle=T.c;cx.beginPath();cx.arc(x,y-3,14,0,7);cx.fill()}otext('★'.repeat(s.lv),x,y+21,9,'#fff');
-   const L=SV.alv[s.t],N=meterN(L),m=SV.am[s.t],dr=SV.adir[s.t],my=mTop(i),ly=mBelow(i)?my+29:my-5;
-   [[0,'#ff5a5a'],[1,'#4fb8ff'],[2,'#5be05b']].forEach(([k,c])=>{const yy=my+k*7;cx.fillStyle='rgba(0,0,0,.8)';cx.fillRect(x-24,yy,48,5.5);cx.fillStyle=c;cx.fillRect(x-24,yy,48*m[k]/N,5.5);if(dr==k+1){cx.strokeStyle='#fff';cx.lineWidth=1.5;cx.strokeRect(x-24.5,yy-.5,49,6.5)}});
-   otext('Lv'+L+' ➶'+arrowsFor(L),x,ly,10,'#ffd84a')}
+   const L=SV.alv[s.t],t=s.t,yb=y-30;cx.fillStyle='rgba(0,0,0,.8)';cx.fillRect(x-22,yb,44,5);cx.fillStyle='#7fffd4';cx.fillRect(x-22,yb,44*Math.min(1,SV.xp[t]/xpNeed(t)),5);
+   otext('Lv'+L+' ➶'+arrowsFor(L),x,yb-4,10,'#ffd84a');
+   if(SV.pts[t]>0){const p=.75+.25*Math.sin(g.t*7);cx.fillStyle=`rgba(127,255,212,${.35*p})`;cx.beginPath();cx.arc(x+18,y-18,15,0,7);cx.fill();cx.fillStyle='#14a37f';cx.beginPath();cx.arc(x+18,y-18,10,0,7);cx.fill();cx.strokeStyle='#fff';cx.lineWidth=1.5;cx.stroke();otext('+'+SV.pts[t],x+18,y-14,10,'#fff')}}
   else{cx.fillStyle='#888';cx.font='18px sans-serif';cx.fillText('+',x,y+6)}});
  for(const a of g.ar){if(!a.vol&&IMG[TYPES[a.t]?.k]){const im=IMG[TYPES[a.t].k].arrow,an=a.ang||-1.57;if(im.naturalWidth){cx.save();cx.translate(a.x,a.y);cx.rotate(an);cx.drawImage(im,-im.naturalWidth*.75,-im.naturalHeight*.4,im.naturalWidth*.8,im.naturalHeight*.8);cx.restore();continue}}cx.strokeStyle=a.c;cx.lineWidth=3;cx.beginPath();const an=a.vol?Math.atan2(a.ty-a.y,a.tx-a.x):(a.ang||-1.57);cx.moveTo(a.x,a.y);cx.lineTo(a.x-Math.cos(an)*12,a.y-Math.sin(an)*12);cx.stroke()}
  for(const f of g.fbs){cx.fillStyle='rgba(0,0,0,.25)';cx.beginPath();cx.ellipse(f.x,f.y,6,3,0,0,7);cx.fill();const im=IMG.fire.arrow;if(im.naturalWidth){cx.save();cx.translate(f.x,f.y-f.h);cx.rotate(1.4);cx.drawImage(im,-im.naturalWidth*.6,-im.naturalHeight*.5,im.naturalWidth,im.naturalHeight);cx.restore()}else{cx.fillStyle='#f80';cx.beginPath();cx.arc(f.x,f.y-f.h,6,0,7);cx.fill()}}
@@ -346,9 +365,6 @@ function draw(){const g=G;cx.save();if(g.shake>0)cx.translate((Math.random()-.5)
   else if(f.img){dimg(IMG[f.img].hit,f.x,f.y,f.s*(1.4-f.l))}
   else if(f.sw){cx.fillStyle='#ddd';cx.fillRect(f.x-2,f.y-18,4,22);cx.fillStyle='#a70';cx.fillRect(f.x-6,f.y-20,12,3)}
   else{cx.fillStyle=f.c;cx.fillRect(f.x,f.y,f.s,f.s)}}cx.globalAlpha=1;
- g.slots.forEach((s,i)=>{if(!s)return;const held=g.drag&&g.drag.slot===i&&!g.drag.moved;if(!(held||(s.info||0)>g.t))return;const L=SV.alv[s.t],N=meterN(L),m=SV.am[s.t],x=Math.max(56,Math.min(W-56,SLOTX[i])),y=mBelow(i)?SLOTY[i]+74:SLOTY[i]-112;
-  const f=v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e4?Math.floor(v/1e3)+'k':Math.floor(v);cx.fillStyle='rgba(15,15,25,.92)';cx.fillRect(x-54,y,108,60);cx.strokeStyle=TYPES[s.t].c;cx.lineWidth=2;cx.strokeRect(x-54,y,108,60);cx.textAlign='center';
-  otext(TYPES[s.t].n+' Lv'+L+' ➶'+arrowsFor(L),x,y+13,10,'#ffd84a');[['ATK','#ff7a7a'],['SPD','#7cc8ff'],['RNG','#7ee87e']].forEach(([l,c],k)=>otext(l+' '+f(m[k])+' / '+f(N)+(SV.adir[s.t]==k+1?' ◀':''),x,y+27+k*12,10,c))});
  cx.font='22px sans-serif';cx.textAlign='center';for(const d of g.drops){const b=Math.sin(g.t*8)*3;cx.fillStyle='rgba(255,255,255,'+(.4+.3*Math.sin(g.t*10))+')';cx.beginPath();cx.arc(d.x,d.y+b,18,0,7);cx.fill();cx.fillText(d.d.i,d.x,d.y+8+b)}
  // bottom panel: skills + cards
  cx.fillStyle='#3b3b46';cx.fillRect(0,522,W,118);cx.fillStyle='#2a2a33';cx.fillRect(0,522,W,3);
@@ -359,7 +375,8 @@ function draw(){const g=G;cx.save();if(g.shake>0)cx.translate((Math.random()-.5)
  TYPES.forEach((T,i)=>{const x=4+i*(CARDW+3),ok=g.energy>=T.cost;cx.fillStyle=g.sel==i?'#fff':ok?T.c:'#555';cx.fillRect(x,CARDY-22,CARDW,48);cx.globalAlpha=ok?1:.5;dimg(IMG[T.k].portrait,x+16,CARDY+2,46);cx.globalAlpha=1;cx.fillStyle='#000';cx.font='bold 12px sans-serif';cx.fillText(T.n,x+CARDW-19,CARDY-2);cx.font='12px sans-serif';cx.fillText('⚡'+T.cost,x+CARDW-19,CARDY+16)});
  cx.fillStyle='rgba(0,0,0,.5)';cx.fillRect(0,0,W,34);cx.fillStyle='#fff';cx.font='bold 14px sans-serif';cx.textAlign='left';
  cx.fillText(`St ${g.st.n}  Wave ${g.wave}/${g.st.waves.length}  ❤${g.hp}  ⚡${Math.floor(g.energy)}`,8,22);cx.textAlign='center';cx.fillText('⏸',W-20,22);cx.fillStyle=g.spd>1?'#fc0':'#fff';cx.fillText(g.spd+'x',W-56,22);if(!paid()){cx.font='9px sans-serif';cx.fillText('🔒3x',W-56,31)}
- cx.fillStyle=g.vol>0?'#666':'#ff0';cx.fillRect(8,38,120*(1-g.vol/g.volCd),5);cx.font='10px sans-serif';cx.fillStyle='#fff';cx.textAlign='left';cx.fillText(g.vol>0?'Volley charging':'VOLLEY READY – tap field!',8,54);
+ cx.fillStyle=g.vol>0?'#666':'#ff0';cx.fillRect(8,38,120*(1-g.vol/g.volCd),5);cx.font='10px sans-serif';cx.fillStyle='#fff';cx.textAlign='left';{const tp=totPts(),gl=tp>0?.75+.25*Math.sin(g.t*6):0;cx.fillStyle=tp>0?`rgba(20,163,127,${.7+.3*gl})`:'rgba(40,60,40,.85)';cx.fillRect(6,62,98,26);cx.strokeStyle=tp>0?'#7fffd4':'#888';cx.lineWidth=2;cx.strokeRect(6,62,98,26);cx.textAlign='center';otext('⬆ Upgrade',55,80,13,'#fff');if(tp>0){cx.fillStyle='#e33';cx.beginPath();cx.arc(102,63,10,0,7);cx.fill();otext(tp>99?'99+':''+tp,102,67,10,'#fff')}cx.textAlign='left'}
+ cx.fillStyle='#fff';cx.font='10px sans-serif';cx.fillText(g.vol>0?'Volley charging':'VOLLEY READY – tap field!',8,54);
  [[150,'🔧 Repair +6',repCost(),g.hp<g.maxhp],[254,'🛡 Max HP +5',fortCost(),true]].forEach(([bx,l,c,ok])=>{const can=ok&&g.energy>=c;cx.fillStyle=can?'rgba(170,40,40,.85)':'rgba(60,60,60,.7)';cx.fillRect(bx,37,100,20);cx.fillStyle=can?'#fff':'#aaa';cx.font='bold 10px sans-serif';cx.fillText(l+' ⚡'+c,bx+4,51)});cx.fillStyle='#fff';cx.fillText('❤ '+g.hp+'/'+g.maxhp,150,68);cx.textAlign='center';
  g.txt.forEach(t=>{cx.globalAlpha=Math.min(1,t.l);cx.font='bold '+(t.sm?10:14)+'px sans-serif';cx.fillStyle=t.c||'#ff0';cx.fillText(t.s,t.x,t.y)});cx.globalAlpha=1;
  const d=g.drag;if(d){
@@ -377,5 +394,5 @@ let last=performance.now();function loop(t){const dt=Math.min(.05,(t-last)/1000)
 requestAnimationFrame(loop);screen();
 const splash=document.getElementById('splash');function hideSplash(){if(splash.style.display=='none')return;unlockAudio();splash.style.display='none'}
 splash.addEventListener('touchend',e=>{e.preventDefault();hideSplash()});splash.addEventListener('click',hideSplash);
-window.__td={WALLY,castSkill,BX,BY,SLOTX,SLOTY,lvF,ccF,addXP,meterN,arrowsFor,lexp,lvPower,audio:()=>AC?AC.state:'none',cycleSpeed,pack,FAM,tierStats,maxTier,startStage,genStage,get G(){return G},SV};
+window.__td={upgMenu,spend,xpNeed,WALLY,castSkill,BX,BY,SLOTX,SLOTY,lvF,ccF,addXP,meterN,arrowsFor,lexp,lvPower,audio:()=>AC?AC.state:'none',cycleSpeed,pack,FAM,tierStats,maxTier,startStage,genStage,get G(){return G},SV};
 </script></body></html>
