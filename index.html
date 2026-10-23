@@ -86,7 +86,7 @@ let AC,NB;function snd(f,d=.08,t='square',v=.05){if(!SV.snd)return;try{AC=AC||ne
 function ac(){AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state=='suspended')AC.resume();if(!NB){NB=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}return AC}
 function tone(f0,f1,d,t='sine',v=.2,dl=0){if(!SV.snd)return;try{const a=ac(),T=a.currentTime+dl,o=a.createOscillator(),g=a.createGain();o.type=t;o.frequency.setValueAtTime(f0,T);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),T+d);g.gain.setValueAtTime(v,T);g.gain.exponentialRampToValueAtTime(.0001,T+d);o.connect(g).connect(a.destination);o.start(T);o.stop(T+d+.02)}catch(e){}}
 function noise(d,f0,f1,v=.3,type='lowpass',dl=0,q=1){if(!SV.snd)return;try{const a=ac(),T=a.currentTime+dl,s=a.createBufferSource(),fl=a.createBiquadFilter(),g=a.createGain();s.buffer=NB;fl.type=type;fl.Q.value=q;fl.frequency.setValueAtTime(f0,T);fl.frequency.exponentialRampToValueAtTime(Math.max(30,f1),T+d);g.gain.setValueAtTime(v,T);g.gain.exponentialRampToValueAtTime(.0001,T+d);s.connect(fl).connect(g).connect(a.destination);s.start(T,Math.random()*.5);s.stop(T+d+.02)}catch(e){}}
-function vib(p){if(SV.vib&&navigator.vibrate)try{navigator.vibrate(p)}catch(e){}}
+function vib(p){if(SV.vib&&navigator.vibrate&&!(navigator.userActivation&&!navigator.userActivation.hasBeenActive))try{navigator.vibrate(p)}catch(e){}}
 const SFX={
  boom(){tone(120,30,.7,'sine',.5);tone(60,25,.9,'triangle',.35);noise(.6,3000,80,.45);noise(.35,6000,600,.2,'highpass',.02);vib([60,30,120])},
  crackle(){for(let i=0;i<6;i++){noise(.09,8000,1500,.35,'highpass',i*.05+Math.random()*.03);tone(1800-i*150,200,.08,'sawtooth',.06,i*.05)}tone(90,40,.5,'sine',.35,.05);vib([30,20,30,20,30,20,80])},
@@ -337,12 +337,51 @@ function drawHype(g){cx.save();cx.textAlign='center';
  if(CO&&CO.l>0){const p=1-CO.l/CO.L,sc=p<.15?.4+p/.15*.8:p<.25?1.2-(p-.15)*2:1,a=Math.min(1,CO.l/.4);cx.globalAlpha=a;cx.translate(W/2,250);cx.scale(sc,sc);cx.font='900 30px sans-serif';cx.lineWidth=6;cx.strokeStyle='rgba(0,0,0,.75)';cx.strokeText(CO.s,0,0);cx.fillStyle=CO.c;cx.fillText(CO.s,0,0)}
  cx.restore();cx.save();if(TIP&&TIP.l>0){cx.globalAlpha=Math.min(1,TIP.l/.4,(3.2-TIP.l)/.3+.01);cx.font='bold 12px sans-serif';const tw=Math.min(W-16,cx.measureText('💡 '+TIP.s).width+20);cx.fillStyle='rgba(20,30,50,.85)';cx.fillRect((W-tw)/2,66,tw,24);cx.strokeStyle='#ffd84a';cx.lineWidth=1.5;cx.strokeRect((W-tw)/2,66,tw,24);cx.fillStyle='#fff';cx.textAlign='center';cx.fillText('💡 '+TIP.s,W/2,82,W-24)}cx.restore()}
 /* ATD-V4 side towers */
-const TEST_FREE=true;
-// PAYMENT-HOOK: wire to Stripe / Apple IAP later ($4.99 per side). Only this function grants side towers.
-function buyTower(side){if(side!='l'&&side!='r'||SV.sideT[side])return;if(!TEST_FREE){alert('Payments not available yet');return}SV.sideT[side]=1;SV.sideA[side]=copyA();save();if(G){G.thp=G.thp||{};G.thp[side]=G.tmax;}if(G)G.txt.push({x:side=='l'?60:300,y:WALLY-80,s:(side=='l'?'Left':'Right')+' Tower built!',l:1.5,c:'#ffd84a'});try{SFX.lvl()}catch(e){}}
-// PAYMENT-HOOK: tower abilities ($2.99 each). Only this function grants them; wire to Stripe / Apple IAP later.
-function buyAbility(k){if(!(k in SV.buy)||SV.buy[k])return;if(!TEST_FREE){alert('Payments not available yet');return}SV.buy[k]=1;save();if(G)G.txt.push({x:180,y:WALLY-90,s:(k=='laser'?'Tower Laser':'Tower Log Roll')+' unlocked!',l:1.5,c:'#ffd84a'});try{SFX.lvl()}catch(e){}}
-function sideTowerHTML(){const AB=[['laser','🔴 Tower Laser'],['tlog','🪵 Tower Log Roll']];return`<h3>🏰 Tower Abilities</h3><div style="display:flex;gap:6px">${AB.map(([k,n])=>SV.buy[k]?`<button class=btn style="flex:1;background:#2e7d32">${n} ✓</button>`:`<button class=btn style="flex:1;background:#b8860b" onclick="buyAbility('${k}');mode=='upg'?upgMenu():mode=='pause'?pauseMenu():screen()">${n} $2.99${TEST_FREE?' (free in test)':''}</button>`).join('')}</div><small>Laser: beam from main + side towers at the nearest enemy (Tower ATK = damage & thickness). Log Roll: towers roll their own logs on a cooldown.</small>`+`<h3>🗼 Side Towers</h3><small>Seal a side: on later stages enemies from that side come from the top instead, and the tower shoots nearby enemies (scales with Tower ATK).</small><div style="display:flex;gap:6px;margin-top:6px">${['l','r'].map(k=>SV.sideT[k]?`<button class=btn style="flex:1;background:#2e7d32">${k=='l'?'Left':'Right'} Tower ✓</button>`:`<button class=btn style="flex:1;background:#b8860b" onclick="buyTower('${k}');this.closest('#ui')&&(mode=='upg'?upgMenu():mode=='pause'?pauseMenu():screen())">${k=='l'?'Left':'Right'} Tower $4.99${TEST_FREE?' (free in test)':''}</button>`).join('')}</div>`}
+// PAYMENTS (web): PayMongo Checkout via askangrydoc.com. Server holds prices + entitlements; ?test=1 = free unlocks for testing. iOS app build (IS_IOS_APP) is always free and never calls the API.
+const IS_APP=!!window.IS_IOS_APP,QS=new URLSearchParams(location.search);
+const TEST_FREE=IS_APP||QS.get('test')=='1';
+const PAY_API='https://askangrydoc.com';
+const PRICE={tower_l:249,tower_r:249,laser:149,tlog:149,max_l:149,max_r:149,evo:249,maxpack:499};
+const ITEM_ORDER=['tower_l','tower_r','laser','tlog','max_l','max_r','evo','maxpack'];
+const pr=k=>TEST_FREE?'':' ₱'+PRICE[k];
+SV.ent=SV.ent||{};
+function playerId(){let p='';try{p=localStorage.archerPid||''}catch(e){}if(!/^[A-Za-z0-9_-]{16,64}$/.test(p)){p='p_'+Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');try{localStorage.archerPid=p}catch(e){}}return p}
+function toast(m,ms=3500){let t=document.getElementById('paytoast');if(!t){t=document.createElement('div');t.id='paytoast';t.style.cssText='position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99;background:#2b2540;border:1px solid #b8860b;color:#fff;border-radius:10px;padding:8px 12px;font:14px sans-serif;max-width:90%;text-align:center';document.body.appendChild(t)}t.textContent=m;t.style.display='block';clearTimeout(t._h);if(ms)t._h=setTimeout(()=>t.style.display='none',ms)}
+function refreshUI(){try{if(mode=='upg')upgMenu();else if(mode=='pause')pauseMenu();else if(mode=='menu'||!G)screen()}catch(e){}}
+// Applies an owned item once (idempotent); SV.ent persists it locally so unlocks work offline after one sync.
+function grantItem(k){if(SV.ent[k])return false;
+ if(k=='tower_l'||k=='tower_r')giveTower(k.slice(-1));else if(k=='laser'||k=='tlog')giveAbility(k);
+ else if(k=='max_l'||k=='max_r'){if(!SV.sideT[k.slice(-1)])return false;giveMaxSide(k.slice(-1))}else if(k=='evo'||k=='maxpack')givePack(k=='evo'?1:2);else return false;
+ SV.ent[k]=1;save();return true}
+let PAY_BUSY=0;
+async function checkout(k){if(!(k in PRICE))return;if(TEST_FREE){SV.ent[k]=0;grantItem(k);refreshUI();return}
+ if(SV.ent[k]||PAY_BUSY)return;PAY_BUSY=1;toast('Opening secure checkout…',0);
+ try{const r=await fetch(PAY_API+'/api/game/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item:k,playerId:playerId()})});const j=await r.json().catch(()=>({}));
+  if(r.status==409){await syncEnt();toast('You already own this.');return}
+  if(!r.ok||!j.checkoutUrl)throw new Error(j.error||'Checkout unavailable');
+  try{localStorage.archerPending=k}catch(e){}location.href=j.checkoutUrl}
+ catch(e){toast('Could not start payment: '+(e&&e.message||e)+'. Check your connection and try again.',6000)}finally{PAY_BUSY=0}}
+async function syncEnt(){if(TEST_FREE)return null;try{const r=await fetch(PAY_API+'/api/game/entitlements?playerId='+encodeURIComponent(playerId()));if(!r.ok)return null;const j=await r.json();
+ if(j.prices)for(const k in j.prices)if(k in PRICE&&j.prices[k]>0)PRICE[k]=j.prices[k];
+ const own=new Set(j.items||[]);let n=0;for(const k of ITEM_ORDER)if(own.has(k)&&grantItem(k))n++;save();refreshUI();return{own,n}}catch(e){return null}}
+async function restorePurchases(){if(TEST_FREE)return;const e=prompt('Restore purchases: enter the email you used at checkout');if(!e)return;
+ try{const r=await fetch(PAY_API+'/api/game/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:e.trim(),playerId:playerId()})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Restore failed');
+  await syncEnt();toast(j.restored?`Restored ${j.restored} purchase(s).`:(j.items&&j.items.length?'Your purchases are already on this device.':'No purchases found for that email.'),5000)}
+ catch(err){toast('Restore failed: '+(err&&err.message||err),5000)}}
+// On load / return from checkout: sync entitlements (poll briefly after a successful payment; the webhook may lag).
+async function payBoot(){if(TEST_FREE)return;const st=QS.get('purchase'),it=QS.get('item');
+ if(st){try{history.replaceState(null,'',location.pathname)}catch(e){}}
+ if(st=='cancel'){toast('Payment cancelled — nothing was charged.');try{localStorage.removeItem('archerPending')}catch(e){}}
+ if(st=='success'){toast('Confirming your payment…',0);for(let i=0;i<10;i++){const r=await syncEnt();if(r&&(!it||r.own.has(it))){toast('Purchase unlocked! Thank you 🎉');try{localStorage.removeItem('archerPending')}catch(e){}return}await new Promise(r=>setTimeout(r,i<4?1500:3000))}
+  toast('Payment is still processing. It will unlock automatically — reopen the game in a minute.',8000);return}
+ await syncEnt()}
+// PAYMENT-HOOK: side towers (₱249 each, web via PayMongo). giveTower is the only grant.
+function buyTower(side){if(side!='l'&&side!='r'||SV.sideT[side])return;checkout('tower_'+side)}
+function giveTower(side){if(side!='l'&&side!='r'||SV.sideT[side])return;SV.sideT[side]=1;SV.sideA[side]=copyA();save();if(G){G.thp=G.thp||{};G.thp[side]=G.tmax;}if(G)G.txt.push({x:side=='l'?60:300,y:WALLY-80,s:(side=='l'?'Left':'Right')+' Tower built!',l:1.5,c:'#ffd84a'});try{SFX.lvl()}catch(e){}}
+// PAYMENT-HOOK: tower abilities (₱149 each). giveAbility is the only grant.
+function buyAbility(k){if(!(k in SV.buy)||SV.buy[k])return;checkout(k)}
+function giveAbility(k){if(!(k in SV.buy)||SV.buy[k])return;SV.buy[k]=1;save();if(G)G.txt.push({x:180,y:WALLY-90,s:(k=='laser'?'Tower Laser':'Tower Log Roll')+' unlocked!',l:1.5,c:'#ffd84a'});try{SFX.lvl()}catch(e){}}
+function sideTowerHTML(){const AB=[['laser','🔴 Tower Laser'],['tlog','🪵 Tower Log Roll']];return`<h3>🏰 Tower Abilities</h3><div style="display:flex;gap:6px">${AB.map(([k,n])=>SV.buy[k]?`<button class=btn style="flex:1;background:#2e7d32">${n} ✓</button>`:`<button class=btn style="flex:1;background:#b8860b" onclick="buyAbility('${k}');mode=='upg'?upgMenu():mode=='pause'?pauseMenu():screen()">${n}${pr(k)}${TEST_FREE?' (free)':''}</button>`).join('')}</div><small>Laser: beam from main + side towers at the nearest enemy (Tower ATK = damage & thickness). Log Roll: towers roll their own logs on a cooldown.</small>`+`<h3>🗼 Side Towers</h3><small>Seal a side: on later stages enemies from that side come from the top instead, and the tower shoots nearby enemies (scales with Tower ATK).</small><div style="display:flex;gap:6px;margin-top:6px">${['l','r'].map(k=>SV.sideT[k]?`<button class=btn style="flex:1;background:#2e7d32">${k=='l'?'Left':'Right'} Tower ✓</button>`:`<button class=btn style="flex:1;background:#b8860b" onclick="buyTower('${k}');this.closest('#ui')&&(mode=='upg'?upgMenu():mode=='pause'?pauseMenu():screen())">${k=='l'?'Left':'Right'} Tower${pr('tower_'+k)}${TEST_FREE?' (free)':''}</button>`).join('')}</div>`}
 const SIDEX={l:16,r:344};
 function sideUpdate(g,dt){sideArchers(g,dt);for(const k of['l','r']){if(!SV.sideT[k]||!tUp(g,k))continue;g['sc'+k]=(g['sc'+k]||0)-dt;if(g['sc'+k]>0)continue;const x=SIDEX[k],y=WALLY-30;let b=null,bd=1e9;for(const e of g.en){const d=Math.hypot(e.x-x,e.y-y);if(d<200&&d<bd){bd=d;b=e}}
  if(!b){g['sc'+k]=.25;continue}g['sc'+k]=1.1;g.ar.push({vol:1,x,y:y-20,tx:b.x,ty:b.y,v:650,c:'#ffd84a',aL:aMaxLv(),d:8*(1+g.st.n*.025)*dmgMul()*twAtk()});g.sideShots=(g.sideShots||0)+1}}
@@ -391,15 +430,16 @@ function sideArchers(g,dt){const rm=1+SV.up.rate*.07,sm=dmgMul()*evoMul().d*(1+g
   if(!b){cds[i]=.3;continue}cds[i]=T.rate/evoMul().r/(1+.05*a[1]);const d=T.dmg*sm*(1+.12*a[0]),na=Math.min(3,arrowsFor(L));for(let j=0;j<na;j++)g.ar.push({x,y,tgt:b,v:520,c:T.c,t:i,d,cv:(j-(na-1)/2)*40,aL:L});g.saShots=(g.saShots||0)+1}}}
 function drawSideA(g){for(const k of['l','r']){if(!tUp(g,k)||!SV.sideA[k])continue;for(let i=0;i<5;i++){const[x,y]=SAPOS(k,i),a=SV.sideA[k].ap[i];cx.fillStyle='#333';cx.beginPath();cx.arc(x,y,8,0,7);cx.fill();cx.fillStyle=TYPES[i].c;cx.beginPath();cx.arc(x,y,6,0,7);cx.fill();otext(''+(1+a[0]+a[1]+a[2]),x,y+3,7,'#000')}}}
 function sideSpend(k,i,j){const A=SV.sideA[k];if(!A||SV.pool<=0)return;const a=A.ap[i];if(a[0]+a[1]+a[2]>=99)return;a[j]++;SV.pool--;save();SFX.tap()}
-// PAYMENT-HOOK: 'Max side tower archers to 100' $2.99 per side tower; wire to Stripe / Apple IAP later.
-function buyMaxSide(k){if(!SV.sideT[k]||!SV.sideA[k])return;if(!TEST_FREE){alert('Payments not available yet');return}SV.sideA[k].ap=SV.sideA[k].ap.map(a=>{const b=a.slice();let r=99-b[0]-b[1]-b[2];while(r-->0){const m=b.indexOf(Math.min(...b));b[m]++}return b});save();try{SFX.lvl()}catch(e){}}
-function shopBanner(){const it=[];for(const k of['l','r'])if(!SV.sideT[k])it.push([`buyTower('${k}')`,(k=='l'?'Left':'Right')+' Tower $4.99']);if(!SV.buy.laser)it.push(["buyAbility('laser')",'Tower Laser $2.99']);if(!SV.buy.tlog)it.push(["buyAbility('tlog')",'Tower Log Roll $2.99']);
- for(const k of['l','r'])if(SV.sideT[k]&&SV.sideA[k]&&SV.sideA[k].ap.some(a=>a[0]+a[1]+a[2]<99))it.push([`buyMaxSide('${k}')`,'Max '+(k=='l'?'Left':'Right')+' archers $2.99']);if(!it.length)return'';
- const low=SV.pool<2&&SV.coins<200,hint=low?(!SV.buy.laser?'Short on points? Unlock the Laser for $2.99':!SV.sideT.l||!SV.sideT.r?'Short on points? A Side Tower adds 5 archers':''):'';
- return`<div style="background:#2b2540;border:1px solid #b8860b;border-radius:10px;padding:6px;margin-bottom:6px;font-size:12px"><b>🛒 Shop</b>${TEST_FREE?' <small>(free in test)</small>':''}<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${it.map(([fn,l])=>`<button class=btn style="font-size:11px;padding:5px 7px;background:#6b4f12" onclick="${fn};upgMenu()">${l}</button>`).join('')}</div>${hint?`<small style="opacity:.85">💡 ${hint}</small>`:''}</div>`}
+// PAYMENT-HOOK: 'Max side tower archers to 100' (₱149 per side tower). giveMaxSide is the only grant.
+function buyMaxSide(k){if(!SV.sideT[k]||!SV.sideA[k])return;checkout('max_'+k)}
+function giveMaxSide(k){if(!SV.sideT[k]||!SV.sideA[k])return;SV.sideA[k].ap=SV.sideA[k].ap.map(a=>{const b=a.slice();let r=99-b[0]-b[1]-b[2];while(r-->0){const m=b.indexOf(Math.min(...b));b[m]++}return b});save();try{SFX.lvl()}catch(e){}}
+function shopBanner(){const it=[];for(const k of['l','r'])if(!SV.sideT[k])it.push([`buyTower('${k}')`,(k=='l'?'Left':'Right')+' Tower'+pr('tower_'+k)]);if(!SV.buy.laser)it.push(["buyAbility('laser')",'Tower Laser'+pr('laser')]);if(!SV.buy.tlog)it.push(["buyAbility('tlog')",'Tower Log Roll'+pr('tlog')]);
+ for(const k of['l','r'])if(SV.sideT[k]&&SV.sideA[k]&&SV.sideA[k].ap.some(a=>a[0]+a[1]+a[2]<99))it.push([`buyMaxSide('${k}')`,'Max '+(k=='l'?'Left':'Right')+' archers'+pr('max_'+k)]);if(!it.length)return'';
+ const low=SV.pool<2&&SV.coins<200,hint=low?(!SV.buy.laser?'Short on points? Unlock the Laser'+(TEST_FREE?'':' for ₱'+PRICE.laser):!SV.sideT.l||!SV.sideT.r?'Short on points? A Side Tower adds 5 archers':''):'';
+ return`<div style="background:#2b2540;border:1px solid #b8860b;border-radius:10px;padding:6px;margin-bottom:6px;font-size:12px"><b>🛒 Shop</b>${TEST_FREE?' <small>(free unlocks)</small>':''}<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${it.map(([fn,l])=>`<button class=btn style="font-size:11px;padding:5px 7px;background:#6b4f12" onclick="${fn};upgMenu()">${l}</button>`).join('')}</div>${hint?`<small style="opacity:.85">💡 ${hint}</small>`:''}</div>`}
 function sideUpHTML(k,f){if(!SV.sideT[k])return`<p>Buy the ${k=='l'?'Left':'Right'} Tower (Side Towers below) to get 5 more archers.</p>`;const A=SV.sideA[k];let h=`<p style="margin:4px 0">${k=='l'?'Left':'Right'} tower archers (cap Lv100, shared pool: <b style="color:#7fffd4">${SV.pool}</b>)</p>`;
  TYPES.forEach((T,i)=>{const a=A.ap[i],L=1+a[0]+a[1]+a[2],ok=SV.pool>0&&L<100;h+=`<div class=row><span><b style="color:${T.c}">${T.n}</b> Lv${L}${L>=100?' (MAX)':''} <small>${a.join('/')}</small></span><span>${['ATK','SPD','RNG'].map((n,j)=>`<button class=btn style="padding:6px 8px;font-size:12px;background:${ok?'#555':'#333'}" onclick="sideSpend('${k}',${i},${j});upgMenu()">+${n}</button>`).join('')}</span></div>`});
- return h+`<button class=btn style="width:100%;background:#b8860b" onclick="buyMaxSide('${k}');upgMenu()">Max to 100 - $2.99${TEST_FREE?' (free in test)':''}</button>`}
+ return h+`<button class=btn style="width:100%;background:#b8860b" onclick="buyMaxSide('${k}');upgMenu()">Max to 100${TEST_FREE?' (free)':' - ₱'+PRICE['max_'+k]}</button>`}
 function autoTrap(g){for(let t=0;t<5;t++){if(!hasType(t)||g.tk[t]>0||g.energy<TRAP[t].e)continue;const air=!!TRAP[t].air,r=tpR(t),c=g.en.filter(e=>e.y>WALLY-280&&e.y<WALLY-10&&(air||!e.air)&&!e.trapped);if(!c.length)continue;
  let best=null,bs=0;for(const e of c){let n=0;for(const o of c)if(Math.hypot(o.x-e.x,o.y-e.y)<r)n+=(air&&o.f=='dragon'?3:1);if(n>bs){bs=n;best=e}}if(best&&bs>=3&&castTrap(t,best.x,best.y))return}}
 /* ATD-V7-FLYERS */const FLY={dragon:1,wraith:1,skyb:1};
@@ -480,10 +520,11 @@ function screen(head=''){ui.style.display='block';let h=head+`<h2>🏹 Archer TD
  <button class=btn style="background:#733" onclick="if(confirm('Reset all progress?')){localStorage.removeItem('archerTD');location.reload()}">Reset save</button>`;ui.innerHTML=h}
 function pauseMenu(msg=''){mode='pause';screen(msg+`<h2>⏸ Paused</h2><button class=btn onclick="mode='play';ui.style.display='none'">Resume</button><button class=btn style="background:#456" onclick="SV.snd^=1;save();musicSync();pauseMenu()">🔊 Sound: ${SV.snd?'ON':'OFF'}</button><button class=btn style="background:#456" onclick="SV.vib^=1;save();if(SV.vib)vib(50);pauseMenu()">📳 Vibration: ${SV.vib?'ON':'OFF'}</button><button class=btn style="background:#456" onclick="SV.mus^=1;save();musicSync();pauseMenu()">🎵 Music: ${SV.mus?'ON':'OFF'}</button><button class=btn style="background:#456" onclick="SV.tips^=1;save();pauseMenu()">💡 Tips: ${SV.tips?'ON':'OFF'}</button>`+sideTowerHTML()+shopHTML())}
 function buyUp(k){const c=upCost(k);if(SV.coins<c||SV.up[k]>=MAXUP)return;SV.coins-=c;SV.up[k]++;SFX.xp();save();screen()}
-function shopHTML(){return`<h3>Shop</h3><div class=demo>⚠️ DEMO ONLY — no real payment is made. Prices are mock and nothing is charged.</div>
- <div class=row><span><b>Evolve Pack</b><br><small>Archer evolution: every archer type gains its evolved tier (x2.2 attack, x1.6 fire rate), x2 archer XP + unlocks 3x/5x speed</small></span>${SV.evo?'<b>OWNED</b>':'<button class=btn onclick="pack(1)">$4.99 (demo)</button>'}</div>
- <div class=row><span><b>Max Pack</b><br><small>+40 upgrade points for every archer, x3 archer XP, max stars, max attack & speed upgrades + unlocks 3x/5x speed</small></span>${SV.maxp?'<b>OWNED</b>':'<button class=btn onclick="pack(2)">$9.99 (demo)</button>'}</div>`}
-function pack(n){if(!confirm('DEMO ONLY: no real money is charged. Grant pack?'))return;if(n==1)SV.evo=1;if(n==2&&!SV.maxp){SV.pool+=200;SV.gxl+=40}if(n==2){SV.maxp=1;SV.evo=1;SV.up.dmg=Math.max(SV.up.dmg,MAXUP);SV.up.rate=Math.max(SV.up.rate,MAXUP);if(G)G.slots.forEach(s=>{if(s)s.lv=5})}
+function shopHTML(){return`<h3>Shop</h3>${IS_APP?'':TEST_FREE?'<div class=demo>Test mode (?test=1): unlocks are free.</div>':'<small style="opacity:.85">Prices in ₱. Secure payment by PayMongo: GCash, Maya or card. One-time purchases.</small>'}
+ <div class=row><span><b>Evolve Pack</b><br><small>Archer evolution: every archer type gains its evolved tier (x2.2 attack, x1.6 fire rate), x2 archer XP + unlocks 3x/5x speed</small></span>${SV.evo?'<b>OWNED</b>':'<button class=btn onclick="pack(1)">'+(TEST_FREE?'Unlock (free)':'₱'+PRICE.evo)+'</button>'}</div>
+ <div class=row><span><b>Max Pack</b><br><small>+40 upgrade points for every archer, x3 archer XP, max stars, max attack & speed upgrades + unlocks 3x/5x speed</small></span>${SV.maxp?'<b>OWNED</b>':'<button class=btn onclick="pack(2)">'+(TEST_FREE?'Unlock (free)':'₱'+PRICE.maxpack)+'</button>'}</div>${TEST_FREE?'':'<button class=btn style="background:#456;font-size:13px" onclick="restorePurchases()">Restore purchases</button>'}`}
+function pack(n){if(n!=1&&n!=2)return;if(TEST_FREE&&!confirm('Unlock this pack for free?'))return;checkout(n==1?'evo':'maxpack')}
+function givePack(n){if(n==1)SV.evo=1;if(n==2&&!SV.maxp){SV.pool+=200;SV.gxl+=40}if(n==2){SV.maxp=1;SV.evo=1;SV.up.dmg=Math.max(SV.up.dmg,MAXUP);SV.up.rate=Math.max(SV.up.rate,MAXUP);if(G)G.slots.forEach(s=>{if(s)s.lv=5})}
  SFX.win();save();if(G&&mode=='pause')pauseMenu();else screen()}
 // wall HP: repair +6 HP, or +5 max HP; costs rise with each use within a stage
 const repCost=()=>Math.floor(25*Math.pow(1.45,G.rep)),fortCost=()=>Math.floor(45*Math.pow(1.6,G.fort));
@@ -617,5 +658,6 @@ let last=performance.now();function loop(t){const dt=Math.min(.05,(t-last)/1000)
 requestAnimationFrame(loop);screen();
 const splash=document.getElementById('splash');function hideSplash(){if(splash.style.display=='none')return;unlockAudio();splash.style.display='none'}
 splash.addEventListener('touchend',e=>{e.preventDefault();hideSplash()});splash.addEventListener('click',hideSplash);
-window.__td={castP3,p3Up,p3N,buyMaxSide,sideSpend,towerDmg,allDown,castTrap,tpUp,TRAP,lzUp,buyAbility,buyTower,callout,tip,get CO(){return CO},get TIP(){return TIP},spendT,autoSpread,dumpTo,fortTier,topArcher,saveLayout,upgMenu,spend,xpNeed,WALLY,castSkill,BX,BY,SLOTX,SLOTY,lvF,ccF,addXP,meterN,arrowsFor,lexp,lvPower,audio:()=>AC?AC.state:'none',cycleSpeed,pack,FAM,tierStats,maxTier,startStage,genStage,get G(){return G},SV};
+payBoot();
+window.__td={checkout,syncEnt,restorePurchases,playerId,PRICE,castP3,p3Up,p3N,buyMaxSide,sideSpend,towerDmg,allDown,castTrap,tpUp,TRAP,lzUp,buyAbility,buyTower,callout,tip,get CO(){return CO},get TIP(){return TIP},spendT,autoSpread,dumpTo,fortTier,topArcher,saveLayout,upgMenu,spend,xpNeed,WALLY,castSkill,BX,BY,SLOTX,SLOTY,lvF,ccF,addXP,meterN,arrowsFor,lexp,lvPower,audio:()=>AC?AC.state:'none',cycleSpeed,pack,FAM,tierStats,maxTier,startStage,genStage,get G(){return G},SV};
 </script></body></html>
